@@ -1,0 +1,56 @@
+const Discord = require('discord.js');
+
+const PythonShell = require('python-shell');
+const PassThrough = require('stream').PassThrough;
+const fs = require('fs');
+
+const youtubeRegex = require('youtube-regex');
+
+var Readable = require('stream').Readable;
+
+const os = require('os');
+
+console.log(os.type());
+
+exports.run = (Bot, msg, args) => {
+	var rs = new Readable;
+	rs._read = function () {};
+
+	var url = args[0];
+
+	// To figure out format use -F
+	// Regex: https://regex101.com/r/C7umvu/1
+	var format = 140;
+
+	var options = {
+	    mode: 'text',
+	    scriptPath: 'node_modules/youtube-dl/bin/',
+	    args: [ '-f', format, '-o', '-', url ]
+	};
+/*
+	var shell = new PythonShell('youtube-dl', options);
+
+	shell.on('message', data => {
+	    rs.push(data);
+	});
+
+	shell.on('error', console.error);
+*/
+
+	let spawn = require('child_process').spawn;
+	let ls = spawn(options.scriptPath + 'youtube-dl.exe',
+			['-x', '--audio-format', 'mp3', '-o', '-', url]);
+
+	ls.stdout.on('data', function (data) {
+		rs.push(data);
+	});
+
+	Bot.channels
+			.filter(ch => ch instanceof Discord.VoiceChannel)
+			.find(ch => !!ch.members.get('140210069596930048'))
+			.join()
+			.then(connection => {
+				connection.playStream(rs, { seek: 0, volume: 1 });
+
+			}).catch(console.error);
+};

@@ -1,0 +1,9 @@
+
+exports.run = (Bot, msg, args) => {
+	if (!args || args.size < 1) {
+		return msg.channel.send('Must provide a command name to reload.');
+	}
+
+	delete require.cache[require.resolve(`./${args[0]}.js`)];
+	msg.channel.send(`The command ${args[0]} has been reloaded.`);
+};

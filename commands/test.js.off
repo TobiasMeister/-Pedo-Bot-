@@ -1,0 +1,5 @@
+const TempMsg = require('../util/TempMsg.js');
+
+exports.run = (Bot, msg, args) => {
+	
+};
