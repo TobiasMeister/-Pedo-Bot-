@@ -33,8 +33,8 @@ const CmdConf = {
 	voice: Voice
 };
 
-Dynamic.load('commands', (fn, name) => {
-	if (name.startsWith('_')) {
+Dynamic.load('commands', (fn, name, alt) => {
+	if (alt) {
 		Cmd.createNonCmd(name.substr(1), (...args) => fn(Bot, ...args));
 	} else {
 		Cmd.createCmd(name, (...args) => fn(Bot, ...args));
