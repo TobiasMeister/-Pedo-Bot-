@@ -57,8 +57,9 @@ typings/
 # dotenv environment variables file
 .env
 
-# config
+# config & database
 config.json
+config.sqlite
 
 # TODO
 todo.txt
