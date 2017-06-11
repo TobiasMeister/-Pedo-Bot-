@@ -166,7 +166,10 @@ exports.run.queue = (Bot, msg, args) => {
 		let queue = audioQueue.map(audio => (audioQueue.indexOf(audio) + 1) + '. ' + audio.title)
 				.join('\n');
 
-		msg.channel.send('```Markdown\n' + queue + '\n```');
+		msg.channel.send('```Markdown\n'
+				+ 'Audio queue:\n'
+				+ '============\n\n'
+				+ queue + '\n```');
 
 	} else {
 		msg.channel.send('No audio tracks in queue.');

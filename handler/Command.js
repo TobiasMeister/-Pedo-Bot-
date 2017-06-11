@@ -9,31 +9,27 @@ class Commands {
 		this.nonCommands = new Map();
 
 		Bot.on('message', msg => {
+			if (msg.author.bot) return;
+
 			let parts = msg.content.split(' '),
 				cmd, args;
-			let isCmd = true;
 
 			if (msg.content.startsWith(Config.prefix)) {
 				cmd = parts[0].substr(Config.prefix.length);
 				args = parts.slice(1);
 
-			} else if (msg.isMentioned(this.Bot.user)) {
-				if (!msg.content.startsWith(`<@${this.Bot.user.id}>`)) return;
+			} else if (msg.isMentioned(this.Bot.user)
+					&& msg.content.startsWith(`<@${this.Bot.user.id}>`)) {
 
 				cmd = parts[1];
 				args = parts.slice(2);
 
 			} else {
-				isCmd = false;
+				return this.nonCommands.forEach(e => e(msg));
 			}
 
-			if (!isCmd) {
-				this.nonCommands.forEach(e => e(msg));
-
-			} else {
-				if (this.commands.has(cmd)) {
-					this.commands.get(cmd)(msg, args);
-				}
+			if (this.commands.has(cmd)) {
+				this.commands.get(cmd)(msg, args);
 			}
 		});
 	}

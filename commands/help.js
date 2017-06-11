@@ -6,10 +6,10 @@ exports.init = (conf) => {
 };
 
 exports.run = (Bot, msg, args) => {
-	let str = Cmd.cmds.sort().join(', ');
+	let commands = Cmd.cmds.sort().join(', ');
 
-	let info = 'Available commands:\n'
-			+ '-------------------\n\n';
-
-	msg.channel.send('```Markdown\n' + info + str + '\n```');
+	msg.channel.send('```Markdown\n'
+			+ 'Available commands:\n'
+			+ '===================\n\n'
+			+ commands + '\n```');
 };
