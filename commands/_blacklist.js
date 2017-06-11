@@ -1,6 +1,8 @@
 const Logger = require('../util/Logger.js')('CMD', '_blacklist');
 const GuildConf = require('../util/GuildConf.js');
 
+const TempMsg = require('../util/TempMsg.js');
+
 let blacklist;
 let markedDirty = true;
 
@@ -8,7 +10,7 @@ exports.run = {};
 
 exports.run.blacklist = (Bot, msg, args) => {
 	if (args.length === 0) {
-		return msg.channel.sendMessage('Need to specify a phrase to blacklist.');
+		return msg.channel.send('Need to specify a phrase to blacklist.');
 	}
 
 	let block = args.join(' ');
@@ -21,7 +23,7 @@ exports.run.blacklist = (Bot, msg, args) => {
 
 exports.run.allow = (Bot, msg, args) => {
 	if (args.length === 0) {
-		return msg.channel.sendMessage('Need to specify a phrase to remove from blacklist.');
+		return msg.channel.send('Need to specify a phrase to remove from blacklist.');
 	}
 
 	let block = args.join(' ');
@@ -56,8 +58,12 @@ exports.run._block = async (Bot, msg) => {
 	}
 
 	for (let block in blacklist) {
-		if (msg.content.includes(block)) {
-			return msg.delete();
+		let regex = `(?:^|[^\\w])(${block})(?:[^\\w]|$)`;
+
+		if (msg.content.match(regex)) {
+			msg.delete();
+			TempMsg.reply(msg, '*<message deleted>*');
+			break;
 		}
 	}
 };
