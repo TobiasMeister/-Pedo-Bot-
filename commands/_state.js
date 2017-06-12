@@ -3,7 +3,7 @@ const Config = require('../config.json');
 
 let Voice;
 
-exports.init = (conf) => {
+exports.init = (Bot, conf) => {
 	Voice = conf.voice;
 };
 

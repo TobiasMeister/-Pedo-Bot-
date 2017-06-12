@@ -4,7 +4,7 @@ const Kaomoji = require('../kaomoji.json');
 
 let Voice;
 
-exports.init = (conf) => {
+exports.init = (Bot, conf) => {
 	Voice = conf.voice;
 };
 

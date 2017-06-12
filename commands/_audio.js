@@ -10,7 +10,7 @@ const urlRegex = require('url-regex');
 
 let Voice;
 
-exports.init = (conf) => {
+exports.init = (Bot, conf) => {
 	Voice = conf.voice;
 };
 

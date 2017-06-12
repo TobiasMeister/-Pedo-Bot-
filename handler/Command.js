@@ -18,8 +18,7 @@ class Commands {
 				cmd = parts[0].substr(Config.prefix.length);
 				args = parts.slice(1);
 
-			} else if (msg.isMentioned(this.Bot.user)
-					&& msg.content.startsWith(`<@${this.Bot.user.id}>`)) {
+			} else if (msg.content.startsWith(`<@${this.Bot.user.id}>`)) {
 
 				cmd = parts[1];
 				args = parts.slice(2);

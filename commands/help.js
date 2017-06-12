@@ -1,7 +1,7 @@
 
 let Cmd;
 
-exports.init = (conf) => {
+exports.init = (Bot, conf) => {
 	Cmd = conf.cmd;
 };
 

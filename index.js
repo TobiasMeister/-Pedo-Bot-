@@ -22,7 +22,7 @@ YouTube.update();
 
 Logger.log('Registering events ...');
 
-Dynamic.load('events', (fn, name) => {
+Dynamic.load(Bot, 'events', (fn, name) => {
 	Bot.on(name, (...args) => fn(Bot, ...args));
 });
 
@@ -33,7 +33,7 @@ const CmdConf = {
 	voice: Voice
 };
 
-Dynamic.load('commands', (fn, name, alt) => {
+Dynamic.load(Bot, 'commands', (fn, name, alt) => {
 	if (alt) {
 		Cmd.createNonCmd(name.substr(1), (...args) => fn(Bot, ...args));
 	} else {
@@ -43,7 +43,7 @@ Dynamic.load('commands', (fn, name, alt) => {
 
 Logger.log('Registering actions ...')
 
-Dynamic.load('actions', (fn, name) => {
+Dynamic.load(Bot, 'actions', (fn, name) => {
 	Cmd.createNonCmd(name, msg => fn(Bot, msg));
 });
 

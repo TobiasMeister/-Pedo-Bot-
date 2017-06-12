@@ -6,6 +6,12 @@ const TempMsg = require('../util/TempMsg.js');
 let blacklist;
 let markedDirty = true;
 
+exports.init = (Bot, conf) => {
+	Bot.on('messageUpdate', (oldMsg, newMsg) => {
+		exports.run._block(Bot, newMsg);
+	});
+};
+
 exports.run = {};
 
 exports.run.blacklist = (Bot, msg, args) => {

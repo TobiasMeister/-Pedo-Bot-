@@ -2,7 +2,7 @@ const Logger = require('./Logger.js')('Dynamic');
 
 const FS = require('fs');
 
-module.exports.load = (typename, regFn, conf = {}) => {
+module.exports.load = (Bot, typename, regFn, conf = {}) => {
 	try {
 		let files = FS.readdirSync(`./${typename}/`);
 
@@ -14,7 +14,7 @@ module.exports.load = (typename, regFn, conf = {}) => {
 
 			let fn = require(`../${typename}/${file}`);
 
-			if (fn.init) fn.init(conf);
+			if (fn.init) fn.init(Bot, conf);
 
 			if (file.startsWith('_')) {
 				for (let sub in fn.run) {
