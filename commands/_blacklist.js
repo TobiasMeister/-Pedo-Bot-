@@ -64,7 +64,7 @@ exports.run._block = async (Bot, msg) => {
 	}
 
 	for (let block in blacklist) {
-		let regex = `(?:^|[^\\w])(${block})(?:[^\\w]|$)`;
+		let regex = new RegExp(`(?:^|[^\\w])(${block})(?:[^\\w]|$)`, 'i');
 
 		if (msg.content.match(regex)) {
 			msg.delete();
