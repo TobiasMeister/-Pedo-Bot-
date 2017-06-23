@@ -1,0 +1,8 @@
+{
+	"token" : "YOUR TOKEN HERE",
+	"prefix" : "~",
+
+	"voice" : {
+		"volume" : 0.2
+	}
+}
