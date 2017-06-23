@@ -18,10 +18,10 @@ module.exports.update = () => {
 };
 
 module.exports.downloadAudio = (url, forceDownload = true, format = 'mp3', dir = 'media/youtube/') => {
-	if (!fs.existsSync(dir)) {
-		fs.mkdirSync(dir);
+	if (!FS.existsSync(dir)) {
+		FS.mkdirSync(dir);
 	}
-	
+
 	let audioFile;
 
 	new Promise((resolve, reject) => {

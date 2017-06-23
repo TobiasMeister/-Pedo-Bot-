@@ -7,8 +7,8 @@ const FS = require('fs');
 module.exports = {};
 
 module.exports.download = (url, filename = null, forceDownload = true, dir = 'media/user/') => {
-	if (!fs.existsSync(dir)) {
-		fs.mkdirSync(dir);
+	if (!FS.existsSync(dir)) {
+		FS.mkdirSync(dir);
 	}
 
 	return new Promise((resolve, reject) => {
