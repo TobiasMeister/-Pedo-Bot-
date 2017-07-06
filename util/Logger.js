@@ -15,5 +15,9 @@ module.exports = (...classifier) => {
 		console.error(`[${def}]`, ...msg);
 	};
 
+	module.format = (...msg) => {
+		return def + msg.join(' ');
+	};
+
 	return module;
 };

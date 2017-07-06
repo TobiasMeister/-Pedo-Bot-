@@ -10,7 +10,7 @@ module.exports = {};
 module.exports.audioMeta = (path) => {
 	return new Promise((resolve, reject) => {
 		probe(path, (err, probeData) => {
-			if (err) return Logger.error(err);
+			if (err) return reject(Logger.format(err));
 
 			resolve(probeData);
 		});
