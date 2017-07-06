@@ -1,16 +1,11 @@
 const Logger = require('../util/Logger.js')('CMD', 'test');
-const GuildConf = require('../util/GuildConf.js');
+
+const YouTube = require('../util/YouTube.js');
 
 exports.run = async (Bot, msg, args) => {
 	if (msg.author.id != '140210069596930048') return;
 
-	GuildConf.set('test', msg.channel.guild.id, {
-		testKey: 'testVal',
-		testKey2: 'testVal2',
-		testKey3: 'testVal3'
-	});
-
-	let result = await GuildConf.get('test', msg.channel.guild.id);
+	let result = await YouTube.fetchInfo(args[0]);
 
 	Logger.debug(result);
 };

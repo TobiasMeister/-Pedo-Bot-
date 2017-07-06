@@ -17,52 +17,72 @@ module.exports.update = () => {
 	});
 };
 
-module.exports.downloadAudio = (url, forceDownload = true, format = 'mp3', dir = 'media/youtube/') => {
-	if (!FS.existsSync(dir)) {
-		FS.mkdirSync(dir);
-	}
-
-	let audioFile;
-
-	new Promise((resolve, reject) => {
+module.exports.fetchInfo = (url, format = 'mp3') => {
+	return new Promise((resolve, reject) => {
 		Logger.log('Fetching track information');
 
 		YTDL.getInfo(url, ['-o', '/%(title)s - %(id)s.%(ext)s'],
-				{ maxBuffer: 1000 * 1024 }, (err, info) => {
+				{ maxBuffer: 10 * 1000 * 1024 }, (err, info) => {
 
-			if (err) return Logger.error(err);
+			if (err) return reject(Logger.format(err));
 
-			if (Array.isArray(info)) {
-				reject('[YouTube] Playlist not supported');
+			let infoEntries = [];
 
+			if (!Array.isArray(info)) {
+				infoEntries.push(info);
 			} else {
+				infoEntries = info;
+			}
+
+			let result = infoEntries.map(info => {
 				let filename = info._filename
 						.replace(/^(.+\.).+$/, `$1${format}`);
 
 				let filenameFormat = `^(.+) - (.+)(\\.${format})$`;
 
-				resolve({
+				return {
 					id: filename.match(filenameFormat)[2],
 					title: filename.match(filenameFormat)[1],
-					path: dir + filename,
-					filename: filename
+					filename: filename,
+					url: info.url
+				};
+			});
+
+			if (result.length > 1) {
+				resolve({
+					playlistId: infoEntries[0].playlist_id,
+					playlistTitle: infoEntries[0].playlist_title,
+					playlist: infoEntries[0].playlist_title,
+					entries: result
+				});
+			} else {
+				resolve({
+					playlist: null,
+					entries: result
 				});
 			}
 		});
+	});
+};
 
-	}).then(audio => {
+module.exports.downloadAudio = (filename, url, forceDownload = true, format = 'mp3', dir = 'media/youtube/') => {
+	return new Promise((resolve, reject) => {
+		if (!FS.existsSync(dir)) {
+			FS.mkdirSync(dir);
+		}
+
 		if (forceDownload) {
-			reject('[YouTube] Audio cache disabled manually. Forcing (re)download');
+			Logger.log('Audio cache disabled manually. Forcing (re)download');
 
 		} else {
 			Logger.log('Searching for cached version of audio track');
 
 			let files = FS.readdirSync(dir);
 
-			if (files.includes(audio.filename)) {
+			if (files.includes(filename)) {
 				Logger.log('Cached audio track found. Skipping download');
 
-				return audioFile = audio;
+				return resolve(dir + filename);
 			}
 
 			Logger.log('Audio file not found in cache');
@@ -75,30 +95,12 @@ module.exports.downloadAudio = (url, forceDownload = true, format = 'mp3', dir =
 				'-o', dir + '%(title)s - %(id)s.%(ext)s'],
 				{}, (err, output) => {
 
-			if (err) return Logger.error(err);
+			if (err) return reject(Logger.format(err));
 
 			Logger.log(output.join('\n'));
 			Logger.log('Audio track downloaded');
 
-			audioFile = audio;
+			resolve(dir + filename);
 		});
-
-	}).catch(error => {
-		audioFile = null;
-		Logger.error(error);
-	});
-
-	return new Promise((resolve, reject) => {
-		function waitForAudio() {
-			if (typeof audioFile === 'undefined') {
-				setTimeout(waitForAudio, 1000);
-			} else if (audioFile === null) {
-				reject('[YouTube] Error while fetching audio track');
-			} else {
-				resolve(audioFile);
-			}
-		}
-
-		waitForAudio();
 	});
 };

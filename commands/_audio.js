@@ -8,9 +8,10 @@ const Kaomoji = require('../kaomoji.json');
 
 const urlRegex = require('url-regex');
 
-let Voice;
+let Client, Voice;
 
 exports.init = (Bot, conf) => {
+	Client = Bot;
 	Voice = conf.voice;
 };
 
@@ -20,67 +21,92 @@ let audioStatus = {
 };
 
 let audioQueue = [];
+let computing = false;
 let audioStopped = false;
 let repeatAudio = false;
 
-function playAudio(Bot, currentTrack, textChannel) {
-	textChannel.send(`Playing \`${currentTrack.title}\``);
+function enqueue(audio, textChannel, voiceChannel, output = true) {
+	audioQueue.push(audio);
 
-	audioStatus = {
-		playing: `Music ▶️ | ${currentTrack.title}`,
-		paused: `Music ⏸ | ${currentTrack.title}`
-	};
-
-	Bot.user.setGame(audioStatus.playing);
-
-	const Dispatcher = Voice.playAudio(currentTrack.path);
-
-	Dispatcher.on('end', () => {
-		if (audioStopped) {
-			return audioQueue.shift();
+	if (computing || Voice.playing || audioStopped) {
+		if (output) {
+			Logger.log('Adding audio track to queue');
+			textChannel.send(`Adding \`${audio.title}\` to queue.`);
 		}
 
-		if (repeatAudio) {
-			return playAudio(Bot, audioQueue[0], textChannel);
+	} else {
+		playAudio(audioQueue[0], textChannel, voiceChannel);
+	}
+}
+
+function playAudio(audio, textChannel, voiceChannel) {
+	computing = true;
+
+	Voice.connectVoiceChannel(voiceChannel).then(async (connection) => {
+		textChannel.send(`Playing \`${audio.title}\``);
+
+		audioStatus = {
+			playing: `Music ▶️ | ${audio.title}`,
+			paused: `Music ⏸ | ${audio.title}`
+		};
+
+		Client.user.setGame(audioStatus.playing);
+
+		switch (audio.type) {
+			case 'YTDL':
+				audio.path = await YouTube.downloadAudio(audio.filename, audio.url, audio.forceDownload);
+				break;
+			case 'MEDIA':
+				audio.path = await Media.download(audio.filename, audio.url, audio.forceDownload);
+				break;
+			default:
+				computing = false;
+				return Logger.error('Invalid file path');
 		}
 
-		audioQueue.shift();
+		const Dispatcher = Voice.playAudio(audio.path);
 
-		if (audioQueue.length > 0) {
-			Logger.log('Playing next audio track in queue');
+		Dispatcher.on('end', () => {
+			if (audioStopped) {
+				audioQueue.shift();
 
-			return playAudio(Bot, audioQueue[0], textChannel);
-		}
+				if (audioQueue.length === 0) {
+					audioStopped = false;
+					Client.user.setGame();
+				}
 
-		Bot.user.setGame();
-	});
+				return;
+			}
+
+			if (repeatAudio) {
+				return playAudio(audioQueue[0], textChannel, voiceChannel);
+			}
+
+			audioQueue.shift();
+
+			if (audioQueue.length > 0) {
+				Logger.log('Playing next audio track in queue');
+
+				return playAudio(audioQueue[0], textChannel, voiceChannel);
+			}
+
+			Client.user.setGame();
+		});
+
+		computing = false;
+
+	}).catch(Logger.error);
 }
 
 exports.run = {};
 
-exports.run.play = (Bot, msg, args) => {
-	function queueAndPlay(audio) {
-		let channel = Voice.getVoiceChannel(msg.author);
+exports.run.play = async (Bot, msg, args) => {
 
-		if (!channel) {
-			return msg.channel.send(`No channel to play music in ... ${Kaomoji.hmm}`);
-		}
+	let textChannel = msg.channel;
+	let voiceChannel = Voice.getVoiceChannel(msg.author);
 
-		Voice.connectVoiceChannel(channel).then(connection => {
-			msg.channel.stopTyping();
-
-			audioQueue.push(audio);
-
-			if (Voice.playing || audioStopped) {
-				Logger.log('Adding audio track to queue');
-				return msg.channel.send(`Adding \`${audio.title}\` to queue.`);
-			}
-
-			playAudio(Bot, audioQueue[0], msg.channel);
-
-			Logger.log('Playing audio track');
-
-		}).catch(Logger.error);
+	if (!voiceChannel) {
+		return msg.channel.send(`No channel to play music in ... ${Kaomoji.hmm}`);
 	}
 
 	msg.channel.startTyping();
@@ -88,25 +114,46 @@ exports.run.play = (Bot, msg, args) => {
 	if (msg.attachments.size > 0) {
 		let forceDownload = !!args[0] && args[0].match(/\!{3,}/);
 
-		msg.attachments.forEach((value, key, map) => {
-			Media.download(value.url, value.filename, forceDownload).then(media => {
-				queueAndPlay({
-					id: null,
-					title: media.filename.replace(/^(.+)\..+$/, '$1'),
-					path: media.path,
-					filename: media.filename
-				});
+		msg.attachments.forEach(async (value, key, map) => {
+			let audioInfo = await Media.fetchHeaders(value.url);
 
-			}).catch(Logger.error);
+			if (!audioInfo.mimeType.match(/^audio\/.+$/)) {
+				msg.channel.sendMessage();
+				return Logger.error('Not a valid file format');
+			}
+
+			enqueue({
+				id: null,
+				title: audioInfo.filename.replace(/^(.+)\..+$/, '$1'),
+				filename: audioInfo.filename,
+				type: 'MEDIA',
+				forceDownload: forceDownload
+
+			}, textChannel, voiceChannel);
 		});
 
 	} else if (args.length > 0 && urlRegex().test(args[0])) {
 
 		let forceDownload = !!args[1] && args[1].match(/\!{3,}/);
 
-		YouTube.downloadAudio(args[0], forceDownload)
-				.then(queueAndPlay)
-				.catch(Logger.error);
+		try {
+			let audioInfo = await YouTube.fetchInfo(args[0]);
+
+			audioInfo.entries.forEach(audio => {
+				audio.type = 'YTDL';
+				audio.forceDownload = forceDownload;
+
+				enqueue(audio, textChannel, voiceChannel, !audioInfo.playlist);
+			});
+
+			if (audioInfo.playlist) {
+				Logger.log(`Adding ${audioInfo.entries.length} audio tracks to queue`);
+				textChannel.send(`Adding ${audioInfo.entries.length} audio tracks to queue.`);
+			}
+
+		} catch (err) {
+			Logger.error(err);
+		}
 
 	} else {
 		msg.channel.send('Need to specify a valid URL.');
@@ -141,7 +188,7 @@ exports.run.resume = (Bot, msg, args) => {
 		}
 
 		audioStopped = false;
-		return playAudio(Bot, audioQueue[0], msg.channel);
+		return playAudio(audioQueue[0], msg.channel, Voice.channel);
 	}
 
 	if (!Voice.playing) {
@@ -163,8 +210,13 @@ exports.run.volume = (Bot, msg, args) => {
 
 exports.run.queue = (Bot, msg, args) => {
 	if (audioQueue.length > 0) {
-		let queue = audioQueue.map(audio => (audioQueue.indexOf(audio) + 1) + '. ' + audio.title)
-				.join('\n');
+		let queue = audioQueue.slice(0, 9)
+				.map(audio => (audioQueue.indexOf(audio) + 1)
+						+ '. ' + audio.title).join('\n');
+
+		if (audioQueue.length > 10) {
+			queue += '\n10. [...]';
+		}
 
 		msg.channel.send('```Markdown\n'
 				+ 'Audio queue:\n'
@@ -188,7 +240,14 @@ exports.run.skip = (Bot, msg, args) => {
 	if (audioQueue.length > 0) {
 		msg.channel.send('Skipping track.');
 
-		return audioQueue.shift();
+		audioQueue.shift();
+
+		if (audioStopped && audioQueue.length === 0) {
+			audioStopped = false;
+			Bot.user.setGame();
+		}
+
+		return;
 	}
 
 	msg.channel.send('Nothing to skip.');
@@ -224,7 +283,7 @@ exports.run.np = (Bot, msg, args) => {
 	}).catch(Logger.error);
 };
 
-exports.run.cp = (Bot, msg, args) => {
+exports.run.cq = (Bot, msg, args) => {
 	msg.channel.send('Clearing audio queue.');
 
 	audioQueue = Voice.playing ? [ audioQueue[0] ] : [];
