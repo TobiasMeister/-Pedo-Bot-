@@ -72,7 +72,6 @@ function playAudio(audio, textChannel, voiceChannel) {
 
 				if (audioQueue.length === 0) {
 					audioStopped = false;
-					Client.user.setGame();
 				}
 
 				return;
@@ -126,6 +125,7 @@ exports.run.play = async (Bot, msg, args) => {
 				id: null,
 				title: audioInfo.filename.replace(/^(.+)\..+$/, '$1'),
 				filename: audioInfo.filename,
+				url: audioInfo.url,
 				type: 'MEDIA',
 				forceDownload: forceDownload
 
@@ -166,9 +166,13 @@ exports.run.stop = (Bot, msg, args) => {
 	audioStopped = true;
 	repeatAudio = false;
 
-	Voice.stopAudio();
+	if (audioQueue.length > 1) {
+		Bot.user.setGame('Music ⏹');
+	} else {
+		Bot.user.setGame();
+	}
 
-	Bot.user.setGame('Music ⏹');
+	Voice.stopAudio();
 };
 
 exports.run.pause = (Bot, msg, args) => {
