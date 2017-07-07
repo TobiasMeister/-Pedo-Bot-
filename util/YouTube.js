@@ -30,6 +30,8 @@ module.exports.fetchInfo = (url, format = 'mp3') => {
 
 			if (!Array.isArray(info)) {
 				infoEntries.push(info);
+				// Temporary fix for bug in ytdl api
+				infoEntries[0].url = url;
 			} else {
 				infoEntries = info;
 			}
