@@ -11,8 +11,7 @@ exports.run.sleep = (Bot, msg, args) => {
 };
 
 exports.run.unsleep = (Bot, msg, args) => {
-	sleeped = sleeped.filter(
-			user => msg.mentions.users.has(user));
+	sleeped = sleeped.filter(user => msg.mentions.users.has(user));
 };
 
 exports.run._sleep = (Bot, msg) => {

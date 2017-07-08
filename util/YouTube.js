@@ -3,6 +3,8 @@ const Logger = require('../util/Logger.js')('YouTube');
 const YTDL = require('youtube-dl');
 const updater = require('youtube-dl/lib/downloader');
 
+const urlRegex = require('url-regex');
+
 const FS = require('fs');
 
 module.exports = {};
@@ -18,6 +20,8 @@ module.exports.update = () => {
 };
 
 module.exports.fetchInfo = (url, format = 'mp3') => {
+	if (!urlRegex().test(url)) return Promise.reject(Logger.format('Not a valid url'));
+
 	return new Promise((resolve, reject) => {
 		Logger.log('Fetching track information');
 
@@ -68,6 +72,8 @@ module.exports.fetchInfo = (url, format = 'mp3') => {
 };
 
 module.exports.downloadAudio = (filename, url, forceDownload = true, format = 'mp3', dir = 'media/youtube/') => {
+	if (!urlRegex().test(url)) return Promise.reject(Logger.format('Not a valid url'));
+
 	return new Promise((resolve, reject) => {
 		if (!FS.existsSync(dir)) {
 			FS.mkdirSync(dir);

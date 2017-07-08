@@ -9,7 +9,7 @@ const HTTPS = require('https');
 module.exports = {};
 
 module.exports.fetchHeaders = (url) => {
-	if (!urlRegex().test(url)) return Logger.error('Not a valid url');
+	if (!urlRegex().test(url)) return Promise.reject(Logger.format('Not a valid url'));
 
 	return new Promise((resolve, reject) => {
 		HTTPS.get(url, (response) => {
@@ -30,11 +30,13 @@ module.exports.fetchHeaders = (url) => {
 };
 
 module.exports.download = (filename, url, forceDownload = true, dir = 'media/user/') => {
-	if (!FS.existsSync(dir)) {
-		FS.mkdirSync(dir);
-	}
+	if (!urlRegex().test(url)) return Promise.reject(Logger.format('Not a valid url'));
 
 	return new Promise((resolve, reject) => {
+		if (!FS.existsSync(dir)) {
+			FS.mkdirSync(dir);
+		}
+
 		if (forceDownload) {
 			Logger.log('Cache disabled manually. Forcing (re)download');
 

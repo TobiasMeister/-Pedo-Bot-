@@ -13,7 +13,7 @@ class VoiceUtil {
 	}
 
 	getVoiceChannel(member) {
-		if (!member) throw 'Invalid member';
+		if (!member) throw Logger.format('Invalid member');
 
 		return this.Bot.channels
 				.filter(ch => ch instanceof Discord.VoiceChannel)
@@ -21,8 +21,8 @@ class VoiceUtil {
 	}
 
 	connectVoiceChannel(channel) {
-		if (!channel) return Promise.reject('Invalid channel');
-		if (!channel.joinable) return Promise.reject('No permissions to join voice channel');
+		if (!channel) return Promise.reject(Logger.format('Invalid channel'));
+		if (!channel.joinable) return Promise.reject(Logger.format('No permissions to join voice channel'));
 
 		Logger.log('Connecting to voice channel');
 
@@ -33,13 +33,13 @@ class VoiceUtil {
 
 			this.connection = connection;
 
-		}).catch(console.error);
+		}).catch(Logger.error);
 
 		return this.connection;
 	}
 
 	connectVoiceMember(member) {
-		if (!member) return Promise.reject('Invalid member');
+		if (!member) return Promise.reject(Logger.format('Invalid member'));
 
 		let channel = this.getVoiceChannel(member);
 		return this.connectVoiceChannel(channel);
