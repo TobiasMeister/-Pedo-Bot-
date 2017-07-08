@@ -72,3 +72,7 @@ todo.txt
 # Media files
 media/user
 media/youtube
+
+# Test command
+commands/test.js
+commands/test.js.off
