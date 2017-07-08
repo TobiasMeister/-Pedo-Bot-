@@ -1,4 +1,4 @@
-const Logger = require('./Logger.js')('DBAdapter');
+const Logger = require('./Logger.js')('GuildConf');
 
 const SQLite = require('sqlite3').verbose();
 const DB = new SQLite.Database('config.sqlite');
