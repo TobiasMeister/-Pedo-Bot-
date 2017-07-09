@@ -3,6 +3,17 @@ const Logger = require('./Logger.js')('GuildConf');
 const SQLite = require('sqlite3').verbose();
 const DB = new SQLite.Database('config.sqlite');
 
+/**
+ * Checks if an error is present and logs it appropriately.
+ *
+ * Needed because database functions always execute the provided
+ * error callback, even if actually no error occured.
+ * => Reduces code noise
+ */
+function errCallback(err) {
+	if (err) return Logger.error(err);
+}
+
 function initTable(category) {
 	DB.run(`CREATE TABLE IF NOT EXISTS ${category} (
 				guild	INTEGER	NOT NULL,
@@ -10,7 +21,7 @@ function initTable(category) {
 				value	BLOB,
 				PRIMARY KEY(guild, key)
 			);
-			`, Logger.error);
+			`, errCallback);
 }
 
 function buildResult(rows) {
@@ -35,7 +46,7 @@ module.exports.set = (category, guild, params) => {
 				REPLACE INTO ${category} (guild, key, value) VALUES(?, ?, ?)`);
 
 		for (let key in params) {
-			stmt.run([ guild, key, params[key] ], Logger.error);
+			stmt.run([ guild, key, params[key] ], errCallback);
 		}
 
 		stmt.finalize();
@@ -89,7 +100,7 @@ module.exports.delete = (category, guild, keys) => {
 		let values = Array(keys.length).fill('?');
 		DB.run(`DELETE FROM ${category}
 				WHERE guild = ? AND key IN(${values.join(', ')})
-				`,[ guild ].concat(keys), Logger.error);
+				`,[ guild ].concat(keys), errCallback);
 	});
 };
 
@@ -102,6 +113,6 @@ module.exports.purge = (category, guild) => {
 		initTable(category);
 
 		DB.run(`DELETE FROM ${category} WHERE guild = ?`,
-				guild, Logger.error);
+				guild, errCallback);
 	});
 };
