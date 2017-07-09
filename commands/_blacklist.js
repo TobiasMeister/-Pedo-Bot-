@@ -3,9 +3,6 @@ const GuildConf = require('../util/GuildConf.js');
 
 const TempMsg = require('../util/TempMsg.js');
 
-let blacklist;
-let markedDirty = true;
-
 exports.init = (Bot, conf) => {
 	Bot.on('messageUpdate', (oldMsg, newMsg) => {
 		exports.run._block(Bot, newMsg);
@@ -24,7 +21,6 @@ exports.run.blacklist = (Bot, msg, args) => {
 	let param = {};
 	param[block] = null;
 	GuildConf.set('blacklist', msg.channel.guild.id, param);
-	markedDirty = true;
 };
 
 exports.run.allow = (Bot, msg, args) => {
@@ -35,14 +31,10 @@ exports.run.allow = (Bot, msg, args) => {
 	let block = args.join(' ');
 
 	GuildConf.delete('blacklist', msg.channel.guild.id, [ block ]);
-	markedDirty = true;
 };
 
 exports.run.blacklisted = async (Bot, msg, args) => {
-	if (markedDirty) {
-		blacklist = await GuildConf.get('blacklist', msg.channel.guild.id);
-		markedDirty = false;
-	}
+	let blacklist = await GuildConf.get('blacklist', msg.channel.guild.id);
 
 	if (Object.keys(blacklist).length === 0) {
 		return msg.channel.send('No blacklisted words.');
@@ -58,10 +50,7 @@ exports.run.blacklisted = async (Bot, msg, args) => {
 };
 
 exports.run._block = async (Bot, msg) => {
-	if (markedDirty) {
-		blacklist = await GuildConf.get('blacklist', msg.channel.guild.id);
-		markedDirty = false;
-	}
+	let blacklist = await GuildConf.get('blacklist', msg.channel.guild.id);
 
 	for (let block in blacklist) {
 		let regex = new RegExp(`(?:^|[^\\w])(${block})(?:[^\\w]|$)`, 'i');
