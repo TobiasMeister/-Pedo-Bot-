@@ -1,4 +1,5 @@
 const Logger = require('../util/Logger.js')('CMD', '_audio');
+const GuildStore = require('../util/GuildStore.js');
 
 const Audio = require('../util/Audio.js');
 const Media = require('../util/Media.js');
@@ -8,49 +9,33 @@ const Kaomoji = require('../kaomoji.json');
 
 const urlRegex = require('url-regex');
 
-let Client, Voice;
-
-exports.init = (Bot, conf) => {
-	Client = Bot;
-	Voice = conf.voice;
-};
-
-let audioStatus = {
-	playing: null,
-	paused: null
-};
-
-let audioQueue = [];
-let computing = false;
-let audioStopped = false;
-let repeatAudio = false;
-
 function enqueue(audio, textChannel, voiceChannel, output = true) {
-	audioQueue.push(audio);
+	const Conf = GuildStore.get(voiceChannel.guild.id, 'voice',
+			'audio.queue', 'audio.computing', 'audio.stopped');
+	const Voice = Conf.voice;
 
-	if (computing || Voice.playing || audioStopped) {
+	Conf['audio.queue'].push(audio);
+
+	if (Conf['audio.computing'] || Voice.playing || Conf['audio.stopped']) {
 		if (output) {
 			Logger.log('Adding audio track to queue');
 			textChannel.send(`Adding \`${audio.title}\` to queue.`);
 		}
 
 	} else {
-		playAudio(audioQueue[0], textChannel, voiceChannel);
+		playAudio(Conf['audio.queue'][0], textChannel, voiceChannel);
 	}
 }
 
 function playAudio(audio, textChannel, voiceChannel) {
-	computing = true;
+	const Conf = GuildStore.get(voiceChannel.guild.id, 'voice',
+			'audio.queue', 'audio.computing', 'audio.stopped', 'audio.repeat');
+	const Voice = Conf.voice;
+
+	GuildStore.set(voiceChannel.guild.id, { 'audio.computing': true });
 
 	Voice.connectVoiceChannel(voiceChannel).then(async (connection) => {
 		textChannel.send(`Playing \`${audio.title}\``);
-
-		audioStatus = {
-			playing: `Music ▶️ | ${audio.title}`,
-			paused: `Music ⏸ | ${audio.title}`
-		};
-
-		Client.user.setGame(audioStatus.playing);
 
 		switch (audio.type) {
 			case 'YTDL':
@@ -60,46 +45,82 @@ function playAudio(audio, textChannel, voiceChannel) {
 				audio.path = await Media.download(audio.filename, audio.url, audio.forceDownload);
 				break;
 			default:
-				computing = false;
+				GuildStore.set(voiceChannel.guild.id, { 'audio.computing': false });
 				return Logger.error('Invalid file path');
 		}
 
 		const Dispatcher = Voice.playAudio(audio.path);
 
 		Dispatcher.on('end', () => {
-			if (audioStopped) {
-				audioQueue.shift();
+			const Conf = GuildStore.get(voiceChannel.guild.id,
+					'audio.queue', 'audio.computing', 'audio.stopped', 'audio.repeat');
 
-				if (audioQueue.length === 0) {
-					audioStopped = false;
+			if (Conf['audio.stopped']) {
+				Conf['audio.queue'].shift();
+
+				if (Conf['audio.queue'].length === 0) {
+					GuildStore.set(voiceChannel.guild.id, { 'audio.stopped': false });
 				}
 
 				return;
 			}
 
-			if (repeatAudio) {
-				return playAudio(audioQueue[0], textChannel, voiceChannel);
+			if (Conf['audio.repeat']) {
+				return playAudio(Conf['audio.queue'][0], textChannel, voiceChannel);
 			}
 
-			audioQueue.shift();
+			Conf['audio.queue'].shift();
 
-			if (audioQueue.length > 0) {
+			if (Conf['audio.queue'].length > 0) {
 				Logger.log('Playing next audio track in queue');
 
-				return playAudio(audioQueue[0], textChannel, voiceChannel);
+				return playAudio(Conf['audio.queue'][0], textChannel, voiceChannel);
 			}
-
-			Client.user.setGame();
 		});
 
-		computing = false;
+		GuildStore.set(voiceChannel.guild.id, { 'audio.computing': false });
 
 	}).catch(Logger.error);
 }
 
+exports.init = (Bot) => {
+	const InitStates = new Map();
+
+	function initState(guild) {
+		if (InitStates.get(guild)) return;
+
+		GuildStore.set(guild, {
+			'audio.queue': [],
+			'audio.computing': false,
+			'audio.stopped': false,
+			'audio.repeat': false
+		});
+
+		InitStates.set(guild, true);
+	}
+
+	Bot.on('ready', () => {
+		for (let [id, guild] of Bot.guilds) {
+			initState(id);
+		}
+	});
+
+	Bot.on('guildCreate', (guild) => {
+		initState(guild.id);
+	});
+
+	Bot.on('guildDelete', (guild) => {
+		GuildStore.delete(guild.id, 'audio.queue', 'audio.computing', 'audio.stopped', 'audio.repeat');
+		InitStates.delete(guild.id);
+	});
+};
+
 exports.run = {};
 
 exports.run.play = async (Bot, msg, args) => {
+	const Conf = GuildStore.get(msg.channel.guild.id, 'voice',
+			'audio.queue', 'audio.stopped', 'audio.repeat');
+	const Voice = Conf.voice;
 
 	let textChannel = msg.channel;
 	let voiceChannel = Voice.getVoiceChannel(msg.author);
@@ -163,36 +184,38 @@ exports.run.play = async (Bot, msg, args) => {
 };
 
 exports.run.stop = (Bot, msg, args) => {
-	audioStopped = true;
-	repeatAudio = false;
+	const Voice = GuildStore.get(msg.channel.guild.id, 'voice');
 
-	if (audioQueue.length > 1) {
-		Bot.user.setGame('Music ⏹');
-	} else {
-		Bot.user.setGame();
-	}
+	GuildStore.set(msg.channel.guild.id, {
+		'audio.stopped': true,
+		'audio.repeat': false
+	});
 
 	Voice.stopAudio();
 };
 
 exports.run.pause = (Bot, msg, args) => {
+	const Voice = GuildStore.get(msg.channel.guild.id, 'voice');
+
 	if (!Voice.playing) {
 		return msg.channel.send('No audio track to pause.');
 	}
 
 	Voice.pauseAudio();
-
-	Bot.user.setGame(audioStatus.paused);
 };
 
 exports.run.resume = (Bot, msg, args) => {
-	if (audioStopped) {
-		if (audioQueue.length === 0) {
+	const Conf = GuildStore.get(msg.channel.guild.id, 'voice',
+			'audio.queue', 'audio.stopped');
+	const Voice = Conf.voice;
+
+	if (Conf['audio.stopped']) {
+		if (Conf['audio.queue'].length === 0) {
 			return msg.channel.send('No audio track to resume.');
 		}
 
-		audioStopped = false;
-		return playAudio(audioQueue[0], msg.channel, Voice.channel);
+		GuildStore.set(msg.channel.guild.id, { 'audio.stopped': false });
+		return playAudio(Conf['audio.queue'][0], msg.channel, Voice.channel);
 	}
 
 	if (!Voice.playing) {
@@ -200,11 +223,11 @@ exports.run.resume = (Bot, msg, args) => {
 	}
 
 	Voice.resumeAudio();
-
-	Bot.user.setGame(audioStatus.playing);
 };
 
 exports.run.volume = (Bot, msg, args) => {
+	const Voice = GuildStore.get(msg.channel.guild.id, 'voice');
+
 	if (!args[0]) {
 		return msg.channel.send('Need to specify a volume.');
 	}
@@ -213,12 +236,15 @@ exports.run.volume = (Bot, msg, args) => {
 };
 
 exports.run.queue = (Bot, msg, args) => {
-	if (audioQueue.length > 0) {
-		let queue = audioQueue.slice(0, 9)
-				.map(audio => (audioQueue.indexOf(audio) + 1)
+	const Conf = GuildStore.get(msg.channel.guild.id, 'voice', 'audio.queue');
+	const Voice = Conf.voice;
+
+	if (Conf['audio.queue'].length > 0) {
+		let queue = Conf['audio.queue'].slice(0, 9)
+				.map(audio => (Conf['audio.queue'].indexOf(audio) + 1)
 						+ '. ' + audio.title).join('\n');
 
-		if (audioQueue.length > 10) {
+		if (Conf['audio.queue'].length > 10) {
 			queue += '\n10. [...]';
 		}
 
@@ -233,22 +259,25 @@ exports.run.queue = (Bot, msg, args) => {
 };
 
 exports.run.skip = (Bot, msg, args) => {
+	const Conf = GuildStore.get(msg.channel.guild.id, 'voice',
+			'audio.queue', 'audio.stopped', 'audio.repeat');
+	const Voice = Conf.voice;
+
 	if (Voice.playing) {
 		msg.channel.send('Skipping track.');
 
-		repeatAudio = false;
+		GuildStore.set(msg.channel.guild.id, { 'audio.repeat': false });
 
 		return Voice.stopAudio();
 	}
 
-	if (audioQueue.length > 0) {
+	if (Conf['audio.queue'].length > 0) {
 		msg.channel.send('Skipping track.');
 
-		audioQueue.shift();
+		Conf['audio.queue'].shift();
 
-		if (audioStopped && audioQueue.length === 0) {
-			audioStopped = false;
-			Bot.user.setGame();
+		if (Conf['audio.stopped'] && Conf['audio.queue'].length === 0) {
+			GuildStore.set(msg.channel.guild.id, { 'audio.stopped': false });
 		}
 
 		return;
@@ -258,37 +287,49 @@ exports.run.skip = (Bot, msg, args) => {
 };
 
 exports.run.repeat = (Bot, msg, args) => {
+	const Conf = GuildStore.get(msg.channel.guild.id, 'voice',
+			'audio.queue', 'audio.repeat');
+	const Voice = Conf.voice;
+
 	if (!Voice.playing) {
 		return msg.channel.send('Nothing to repeat.');
 	}
 
-	repeatAudio = !repeatAudio;
+	GuildStore.set(msg.channel.guild.id, { 'audio.repeat': !Conf['audio.repeat'] });
 
-	if (repeatAudio) {
-		msg.channel.send(`Repeating \`${audioQueue[0].title}\` indefinitely.`);
+	if (!Conf['audio.repeat']) {
+		msg.channel.send('Repeating `' + Conf['audio.queue'][0].title + '` indefinitely.');
 	} else {
-		msg.channel.send(`Stopped repeating \`${audioQueue[0].title}\`\n`
+		msg.channel.send('Stopped repeating `' + Conf['audio.queue'][0].title + '`\n'
 				+ 'Will play next song in queue when finished.');
 	}
 };
 
 exports.run.np = (Bot, msg, args) => {
-	if (audioStopped || audioQueue.length === 0) {
+	const Conf = GuildStore.get(msg.channel.guild.id, 'voice',
+			'audio.queue', 'audio.stopped');
+	const Voice = Conf.voice;
+
+	if (Conf['audio.stopped'] || Conf['audio.queue'].length === 0) {
 		return msg.channel.send('Nothing playing at the moment.');
 	}
 
-	Audio.audioMeta(audioQueue[0].path).then(meta => {
+	Audio.audioMeta(Conf['audio.queue'][0].path).then(meta => {
 		let playing = Audio.formatDuration(Voice.duration);
 		let total = Audio.formatDuration(meta.format.duration, 'seconds');
 
-		msg.channel.send('Currently playing `' + audioQueue[0].title + '` '
+		msg.channel.send('Currently playing `' + Conf['audio.queue'][0].title + '` '
 				+ `[${playing}/${total}]`);
 
 	}).catch(Logger.error);
 };
 
 exports.run.cq = (Bot, msg, args) => {
+	const Conf = GuildStore.get(msg.channel.guild.id, 'voice', 'audio.queue');
+	const Voice = Conf.voice;
+
 	msg.channel.send('Clearing audio queue.');
 
-	audioQueue = Voice.playing ? [ audioQueue[0] ] : [];
+	let queue = Voice.playing ? [ Conf['audio.queue'][0] ] : [];
+	GuildStore.set(msg.channel.guild.id, { 'audio.queue': queue });
 };

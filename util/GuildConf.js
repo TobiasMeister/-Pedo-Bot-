@@ -24,11 +24,20 @@ function initTable(category) {
 			`, errCallback);
 }
 
+function tableExists(category) {
+	return new Promise((resolve, reject) => {
+		DB.get(`SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?`,
+				category, (err, row) => {
+					if (err) return reject(Logger.format(err));
+
+					resolve(!!row);
+				});
+	});
+}
+
 function buildResult(rows) {
 	let result = {};
-
 	rows.forEach(row => result[row.key] = row.value);
-
 	return result;
 }
 
@@ -53,14 +62,21 @@ module.exports.set = (category, guild, params) => {
 	});
 };
 
-module.exports.get = (category, guild, keys) => {
+module.exports.get = (category, guild, ...keys) => {
 	if (!category.match(/^\w+$/)) {
-		return Logger.error('Invalid category; it may only contain alphanumeric characters!');
+		return Promise.reject(Logger.format('Invalid category; it may only contain alphanumeric characters!'));
 	}
 
 	return new Promise((resolve, reject) => {
+		const single = keys && keys.length === 1 && !Array.isArray(keys[0]);
+		if (keys && Array.isArray(keys[0])) {
+			keys = keys[0];
+		}
+
 		DB.serialize(() => {
-			initTable(category);
+			if (!tableExists(category)) {
+				return single ? undefined : {};
+			}
 
 			let query = `SELECT key, value FROM ${category} WHERE guild = ?`;
 
@@ -75,19 +91,73 @@ module.exports.get = (category, guild, keys) => {
 				let values = Array(keys.length).fill('?');
 				query += ` AND key IN(${values.join(', ')})`;
 
-				DB.all(query, [ guild ].concat(keys), (err, rows) => {
+				DB.all(query, [ guild, ...keys ], (err, rows) => {
 					if (err) return reject(Logger.error(err));
 
-					resolve(buildResult(rows));
+					if (single) {
+						resolve(rows[0] ? rows[0].value : undefined);
+					} else {
+						resolve(buildResult(rows));
+					}
 				});
 			}
 		});
 	});
 };
 
-module.exports.delete = (category, guild, keys) => {
+module.exports.has = (category, guild, ...keys) => {
 	if (!category.match(/^\w+$/)) {
 		return Logger.error('Invalid category; it may only contain alphanumeric characters!');
+	}
+
+	return new Promise((resolve, reject) => {
+		const single = keys && keys.length === 1 && !Array.isArray(keys[0]);
+		if (keys && Array.isArray(keys[0])) {
+			keys = keys[0];
+		}
+
+		DB.serialize(() => {
+			if (!tableExists(category)) {
+				if (single) return false;
+
+				let result = {};
+				keys.forEach(key => result[key] = false);
+				return result;
+			}
+
+			if (single) {
+				DB.get(`SELECT 1 FROM ${category} WHERE guild = ? AND key = ?`,
+						[ guild, keys[0] ], (err, row) => {
+							if (err) return reject(Logger.format(err));
+
+							resolve(!!row);
+						});
+
+			} else {
+				let values = Array(keys.length).fill('?');
+				let query = `SELECT key FROM ${category} WHERE guild = ? AND key IN(${values.join(', ')})`;
+
+				DB.all(query, [ guild, ...keys ], (err, rows) => {
+					if (err) return reject(Logger.error(err));
+
+					let result = {};
+					rows.forEach(row => result[row.key] = true);
+					keys.filter(key => !Object.keys(result).includes(key))
+							.forEach(key => result[key] = false);
+					resolve(result);
+				});
+			}
+		});
+	});
+};
+
+module.exports.delete = (category, guild, ...keys) => {
+	if (!category.match(/^\w+$/)) {
+		return Logger.error('Invalid category; it may only contain alphanumeric characters!');
+	}
+
+	if (keys && Array.isArray(keys[0])) {
+		keys = keys[0];
 	}
 
 	if (!keys || keys.length === 0) {
@@ -95,12 +165,12 @@ module.exports.delete = (category, guild, keys) => {
 	}
 
 	DB.serialize(() => {
-		initTable(category);
+		if (!tableExists(category)) return;
 
 		let values = Array(keys.length).fill('?');
 		DB.run(`DELETE FROM ${category}
 				WHERE guild = ? AND key IN(${values.join(', ')})
-				`,[ guild ].concat(keys), errCallback);
+				`,[ guild, ...keys ], errCallback);
 	});
 };
 
@@ -110,7 +180,7 @@ module.exports.purge = (category, guild) => {
 	}
 
 	DB.serialize(() => {
-		initTable(category);
+		if (!tableExists(category)) return;
 
 		DB.run(`DELETE FROM ${category} WHERE guild = ?`,
 				guild, errCallback);

@@ -1,11 +1,8 @@
-
-let Cmd;
-
-exports.init = (Bot, conf) => {
-	Cmd = conf.cmd;
-};
+const GuildConf = require('../util/GuildConf.js');
 
 exports.run = (Bot, msg, args) => {
+	const Cmd = GuildConf.get(null, 'cmd');
+
 	let commands = Cmd.cmds.sort().join(', ');
 
 	msg.channel.send('```Markdown\n'

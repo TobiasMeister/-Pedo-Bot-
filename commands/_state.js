@@ -1,11 +1,6 @@
 const Logger = require('../util/Logger.js')('CMD', '_state');
 const Config = require('../config.json');
-
-let Voice;
-
-exports.init = (Bot, conf) => {
-	Voice = conf.voice;
-};
+const GuildStore = require('../util/GuildStore.js');
 
 exports.run = {};
 
@@ -13,7 +8,10 @@ exports.run.restart = (Bot, msg, args) => {
 	Logger.log('Restarting bot ...');
 	msg.channel.send('brb guys :ok_hand:');
 
-	Voice.disconnectVoice();
+	for (let [id, guild] of Bot.guilds) {
+		const Voice = GuildStore.get(id, 'voice');
+		Voice.disconnectVoice();
+	}
 
 	Bot.destroy()
 			.then(auth => Bot.login(Config.token))
@@ -24,11 +22,12 @@ exports.run.shutdown = (Bot, msg, args) => {
 	Logger.log('Stopping bot ...');
 	msg.channel.send(':wave:');
 
-	Voice.disconnectVoice();
+	for (let [id, guild] of Bot.guilds) {
+		const Voice = GuildStore.get(id, 'voice');
+		Voice.disconnectVoice();
+	}
 
 	Bot.destroy()
-			.then(obj => {
-				setTimeout(() => process.exit(), 1000);
-			})
+			.then(obj => setTimeout(() => process.exit(), 5000))
 			.catch(Logger.error);
 };

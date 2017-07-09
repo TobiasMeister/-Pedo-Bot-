@@ -30,7 +30,7 @@ exports.run.allow = (Bot, msg, args) => {
 
 	let block = args.join(' ');
 
-	GuildConf.delete('blacklist', msg.channel.guild.id, [ block ]);
+	GuildConf.delete('blacklist', msg.channel.guild.id, block);
 };
 
 exports.run.blacklisted = async (Bot, msg, args) => {
