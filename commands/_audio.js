@@ -35,7 +35,9 @@ function playAudio(audio, textChannel, voiceChannel) {
 	GuildStore.set(voiceChannel.guild.id, { 'audio.computing': true });
 
 	Voice.connectVoiceChannel(voiceChannel).then(async (connection) => {
-		textChannel.send(`Playing \`${audio.title}\``);
+		if (!Conf['audio.repeat']) {
+			textChannel.send(`Playing \`${audio.title}\``);
+		}
 
 		switch (audio.type) {
 			case 'YTDL':
