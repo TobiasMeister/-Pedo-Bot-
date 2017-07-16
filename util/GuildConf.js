@@ -73,8 +73,8 @@ module.exports.get = (category, guild, ...keys) => {
 			keys = keys[0];
 		}
 
-		DB.serialize(() => {
-			if (!tableExists(category)) {
+		DB.serialize(async () => {
+			if (!await tableExists(category)) {
 				return resolve(single ? undefined : {});
 			}
 
@@ -82,7 +82,7 @@ module.exports.get = (category, guild, ...keys) => {
 
 			if (!keys || keys.length === 0) {
 				DB.all(query, [ guild ], (err, rows) => {
-					if (err) return reject(Logger.error(err));
+					if (err) return reject(Logger.format(err));
 
 					resolve(buildResult(rows));
 				});
@@ -92,7 +92,7 @@ module.exports.get = (category, guild, ...keys) => {
 				query += ` AND key IN(${values.join(', ')})`;
 
 				DB.all(query, [ guild, ...keys ], (err, rows) => {
-					if (err) return reject(Logger.error(err));
+					if (err) return reject(Logger.format(err));
 
 					if (single) {
 						resolve(rows[0] ? rows[0].value : undefined);
@@ -116,8 +116,8 @@ module.exports.has = (category, guild, ...keys) => {
 			keys = keys[0];
 		}
 
-		DB.serialize(() => {
-			if (!tableExists(category)) {
+		DB.serialize(async () => {
+			if (!await tableExists(category)) {
 				if (single) return resolve(false);
 
 				let result = {};
@@ -138,7 +138,7 @@ module.exports.has = (category, guild, ...keys) => {
 				let query = `SELECT key FROM ${category} WHERE guild = ? AND key IN(${values.join(', ')})`;
 
 				DB.all(query, [ guild, ...keys ], (err, rows) => {
-					if (err) return reject(Logger.error(err));
+					if (err) return reject(Logger.format(err));
 
 					let result = {};
 					rows.forEach(row => result[row.key] = true);
@@ -164,8 +164,8 @@ module.exports.delete = (category, guild, ...keys) => {
 		return Logger.error("No keys provided; to remove all keys, use the 'purge' function instead!");
 	}
 
-	DB.serialize(() => {
-		if (!tableExists(category)) return;
+	DB.serialize(async () => {
+		if (!await tableExists(category)) return;
 
 		let values = Array(keys.length).fill('?');
 		DB.run(`DELETE FROM ${category}
@@ -179,8 +179,8 @@ module.exports.purge = (category, guild) => {
 		return Logger.error('Invalid category; it may only contain alphanumeric characters!');
 	}
 
-	DB.serialize(() => {
-		if (!tableExists(category)) return;
+	DB.serialize(async () => {
+		if (!await tableExists(category)) return;
 
 		DB.run(`DELETE FROM ${category} WHERE guild = ?`,
 				guild, errCallback);
