@@ -75,7 +75,7 @@ module.exports.get = (category, guild, ...keys) => {
 
 		DB.serialize(() => {
 			if (!tableExists(category)) {
-				return single ? undefined : {};
+				return resolve(single ? undefined : {});
 			}
 
 			let query = `SELECT key, value FROM ${category} WHERE guild = ?`;
@@ -118,11 +118,11 @@ module.exports.has = (category, guild, ...keys) => {
 
 		DB.serialize(() => {
 			if (!tableExists(category)) {
-				if (single) return false;
+				if (single) return resolve(false);
 
 				let result = {};
 				keys.forEach(key => result[key] = false);
-				return result;
+				return resolve(result);
 			}
 
 			if (single) {
