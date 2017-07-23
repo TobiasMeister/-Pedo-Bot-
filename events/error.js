@@ -13,6 +13,6 @@ exports.run = (err) => {
 	}
 
 	let now = moment().format('YYYY-MM-DD HH-mm-ss');
-	FS.writeFile(logsDir + `error ${now}.txt`,
+	FS.writeFileSync(logsDir + `error ${now}.txt`,
 			JSON.stringify(err, Object.getOwnPropertyNames(err)).replace(/\\n/g, '\n'));
 };
