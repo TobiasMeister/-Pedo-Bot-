@@ -109,7 +109,7 @@ module.exports.streamAndDownload = (filename, url, forceDownload = false, format
 			if (files.includes(filename)) {
 				Logger.log('Cached audio track found. Skipping download');
 
-				return resolve(dir + filename);
+				return resolve({ path: dir + filename });
 			}
 
 			Logger.log('Audio file not found in cache');
@@ -117,21 +117,25 @@ module.exports.streamAndDownload = (filename, url, forceDownload = false, format
 
 		let stream = module.exports.stream(url);
 
-		let sourceBuffer = new Stream.PassThrough();
-		let playbackBuffer = new Stream.PassThrough();
-
-		stream.on('data', (data) => {
-			sourceBuffer.write(data);
-			playbackBuffer.write(data);
-		});
-
 		let fileStream = FS.createWriteStream(dir + filename);
-		sourceBuffer.pipe(fileStream);
-
 		fileStream.on('finish', () => Logger.log('Audio track downloaded'));
 		fileStream.on('error', Logger.error);
 
-		resolve(playbackBuffer);
+		let playbackBuffer = new Stream.PassThrough();
+
+		stream.on('data', (data) => {
+			fileStream.write(data);
+			playbackBuffer.write(data);
+		});
+		stream.on('finish', () => {
+			fileStream.end();
+			playbackBuffer.end();
+		});
+
+		resolve({
+			path: dir + filename,
+			stream: playbackBuffer
+		});
 	});
 };
 

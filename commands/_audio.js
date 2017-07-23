@@ -43,20 +43,22 @@ function playAudio(audio, textChannel, voiceChannel) {
 		switch (audio.type) {
 			case 'YTDL':
 				if (youtubeRegex().test(audio.url)) {
-					audio.source = await YouTube.streamAndDownload(audio.filename, audio.url, audio.forceDownload);
+					let source = await YouTube.streamAndDownload(audio.filename, audio.url, audio.forceDownload);
+					audio.path = source.path;
+					audio.stream = source.stream;
 				} else {
-					audio.source = await YouTube.download(audio.filename, audio.url, audio.forceDownload);
+					audio.path = await YouTube.download(audio.filename, audio.url, audio.forceDownload);
 				}
 				break;
 			case 'MEDIA':
-				audio.source = await Media.download(audio.filename, audio.url, audio.forceDownload);
+				audio.path = await Media.download(audio.filename, audio.url, audio.forceDownload);
 				break;
 			default:
 				GuildStore.set(voiceChannel.guild.id, { 'audio.computing': false });
 				return Logger.error('Invalid file path');
 		}
 
-		const Dispatcher = Voice.playAudio(audio.source);
+		const Dispatcher = Voice.playAudio(audio.stream || audio.path);
 
 		Dispatcher.on('end', () => {
 			const Conf = GuildStore.get(voiceChannel.guild.id,
@@ -125,9 +127,7 @@ exports.init = (Bot) => {
 exports.run = {};
 
 exports.run.play = async (Bot, msg, args) => {
-	const Conf = GuildStore.get(msg.channel.guild.id, 'voice',
-			'audio.queue', 'audio.stopped', 'audio.repeat');
-	const Voice = Conf.voice;
+	const Voice = GuildStore.get(msg.channel.guild.id, 'voice');
 
 	let textChannel = msg.channel;
 	let voiceChannel = Voice.getVoiceChannel(msg.author);
@@ -267,7 +267,7 @@ exports.run.queue = (Bot, msg, args) => {
 
 exports.run.skip = (Bot, msg, args) => {
 	const Conf = GuildStore.get(msg.channel.guild.id, 'voice',
-			'audio.queue', 'audio.stopped', 'audio.repeat');
+			'audio.queue', 'audio.stopped');
 	const Voice = Conf.voice;
 
 	if (Voice.playing) {
