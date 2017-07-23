@@ -321,14 +321,18 @@ exports.run.np = (Bot, msg, args) => {
 		return msg.channel.send('Nothing playing at the moment.');
 	}
 
+	let nowPlaying = 'Currently playing `' + Conf['audio.queue'][0].title + '`';
+
 	Audio.audioMeta(Conf['audio.queue'][0].path).then(meta => {
 		let playing = Audio.formatDuration(Voice.duration);
 		let total = Audio.formatDuration(meta.format.duration, 'seconds');
 
-		msg.channel.send('Currently playing `' + Conf['audio.queue'][0].title + '` '
-				+ `[${playing}/${total}]`);
+		msg.channel.send(nowPlaying + ` [${playing}/${total}]`);
 
-	}).catch(Logger.error);
+	}).catch(err => {
+		Logger.error(err);
+		msg.channel.send(nowPlaying);
+	});
 };
 
 exports.run.cq = (Bot, msg, args) => {
