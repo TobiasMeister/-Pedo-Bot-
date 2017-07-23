@@ -314,20 +314,28 @@ exports.run.repeat = (Bot, msg, args) => {
 
 exports.run.np = (Bot, msg, args) => {
 	const Conf = GuildStore.get(msg.channel.guild.id, 'voice',
-			'audio.queue', 'audio.stopped');
+			'audio.queue', 'audio.stopped', 'audio.nowPlaying');
 	const Voice = Conf.voice;
 
 	if (Conf['audio.stopped'] || Conf['audio.queue'].length === 0) {
 		return msg.channel.send('Nothing playing at the moment.');
 	}
 
+	let timePlaying = Audio.formatDuration(Voice.duration);
+
+	if (Conf['audio.nowPlaying'] && Conf['audio.nowPlaying'].includes(Conf['audio.queue'][0].title)) {
+		return msg.channel.send(Conf['audio.nowPlaying'].replace('{timePlaying}', timePlaying));
+	}
+
 	let nowPlaying = 'Currently playing `' + Conf['audio.queue'][0].title + '`';
 
 	Audio.audioMeta(Conf['audio.queue'][0].path).then(meta => {
-		let playing = Audio.formatDuration(Voice.duration);
 		let total = Audio.formatDuration(meta.format.duration, 'seconds');
 
-		msg.channel.send(nowPlaying + ` [${playing}/${total}]`);
+		nowPlaying += ` [{timePlaying}/${total}]`;
+		msg.channel.send(nowPlaying.replace('{timePlaying}', timePlaying));
+
+		GuildStore.set(msg.channel.guild.id, { 'audio.nowPlaying': nowPlaying });
 
 	}).catch(err => {
 		Logger.error(err);
