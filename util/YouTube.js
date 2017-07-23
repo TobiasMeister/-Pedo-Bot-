@@ -2,10 +2,13 @@ const Logger = require('../util/Logger.js')('YouTube');
 
 const YTDL = require('youtube-dl');
 const updater = require('youtube-dl/lib/downloader');
+const ytdl = require('ytdl-core');
 
 const urlRegex = require('url-regex');
+const youtubeRegex = require('youtube-regex');
 
 const FS = require('fs');
+const Stream = require('stream');
 
 module.exports = {};
 
@@ -19,7 +22,7 @@ module.exports.update = () => {
 	});
 };
 
-module.exports.fetchInfo = (url, format = 'mp3') => {
+module.exports.fetchInfo = (url, format = 'm4a') => {
 	if (!urlRegex().test(url)) return Promise.reject(Logger.format('Not a valid url'));
 
 	return new Promise((resolve, reject) => {
@@ -71,7 +74,68 @@ module.exports.fetchInfo = (url, format = 'mp3') => {
 	});
 };
 
-module.exports.downloadAudio = (filename, url, forceDownload = true, format = 'mp3', dir = 'media/youtube/') => {
+/**
+ * Only supports links directly from YouTube, can't stream from elsewhere.
+ */
+module.exports.stream = (url, quality = 140) => {
+	if (!youtubeRegex().test(url)) return Logger.error('Not a valid url');
+
+	Logger.log('Fetching audio stream');
+
+	// To figure out quality use -F
+	// Regex: https://regex101.com/r/C7umvu/1
+	return ytdl(url, { filter: 'audioonly', quality: quality });
+};
+
+/**
+ * Only supports links directly from YouTube, can't stream from elsewhere.
+ */
+module.exports.streamAndDownload = (filename, url, forceDownload = false, format = 'm4a', quality = 140, dir = 'media/youtube/') => {
+	if (!youtubeRegex().test(url)) return Promise.reject(Logger.format('Not a valid url'));
+
+	return new Promise((resolve, reject) => {
+		if (!FS.existsSync(dir)) {
+			FS.mkdirSync(dir);
+		}
+
+		if (forceDownload) {
+			Logger.log('Audio cache disabled manually. Forcing (re)download');
+
+		} else {
+			Logger.log('Searching for cached version of audio track');
+
+			let files = FS.readdirSync(dir);
+
+			if (files.includes(filename)) {
+				Logger.log('Cached audio track found. Skipping download');
+
+				return resolve(dir + filename);
+			}
+
+			Logger.log('Audio file not found in cache');
+		}
+
+		let stream = module.exports.stream(url);
+
+		let sourceBuffer = new Stream.PassThrough();
+		let playbackBuffer = new Stream.PassThrough();
+
+		stream.on('data', (data) => {
+			sourceBuffer.write(data);
+			playbackBuffer.write(data);
+		});
+
+		let fileStream = FS.createWriteStream(dir + filename);
+		sourceBuffer.pipe(fileStream);
+
+		fileStream.on('finish', () => Logger.log('Audio track downloaded'));
+		fileStream.on('error', Logger.error);
+
+		resolve(playbackBuffer);
+	});
+};
+
+module.exports.download = (filename, url, forceDownload = false, format = 'm4a', dir = 'media/youtube/') => {
 	if (!urlRegex().test(url)) return Promise.reject(Logger.format('Not a valid url'));
 
 	return new Promise((resolve, reject) => {

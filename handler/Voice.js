@@ -3,6 +3,8 @@ const Logger = require('../util/Logger.js')('Voice');
 const Config = require('../config.json');
 const Discord = require('discord.js');
 
+const isStream = require('is-stream');
+
 class VoiceUtil {
 
 	constructor(Bot) {
@@ -52,14 +54,18 @@ class VoiceUtil {
 		this.connection = null;
 	}
 
-	playAudio(path) {
+	playAudio(source) {
 		if (!this.connection) return;
 
 		if (this.playing) this.stopAudio();
 
 		Logger.log('Playing audio track in voice channel');
 
-		this.dispatcher = this.connection.playFile(path);
+		if (isStream(source)) {
+			this.dispatcher = this.connection.playStream(source);
+		} else {
+			this.dispatcher = this.connection.playFile(source);
+		}
 		this.dispatcher.setVolume(Config.voice.volume);
 
 		this.dispatcher.on('end', () => {

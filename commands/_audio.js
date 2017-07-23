@@ -8,6 +8,7 @@ const YouTube = require('../util/YouTube.js');
 const Kaomoji = require('../kaomoji.json');
 
 const urlRegex = require('url-regex');
+const youtubeRegex = require('youtube-regex');
 
 function enqueue(audio, textChannel, voiceChannel, output = true) {
 	const Conf = GuildStore.get(voiceChannel.guild.id, 'voice',
@@ -41,17 +42,21 @@ function playAudio(audio, textChannel, voiceChannel) {
 
 		switch (audio.type) {
 			case 'YTDL':
-				audio.path = await YouTube.downloadAudio(audio.filename, audio.url, audio.forceDownload);
+				if (youtubeRegex().test(audio.url)) {
+					audio.source = await YouTube.streamAndDownload(audio.filename, audio.url, audio.forceDownload);
+				} else {
+					audio.source = await YouTube.download(audio.filename, audio.url, audio.forceDownload);
+				}
 				break;
 			case 'MEDIA':
-				audio.path = await Media.download(audio.filename, audio.url, audio.forceDownload);
+				audio.source = await Media.download(audio.filename, audio.url, audio.forceDownload);
 				break;
 			default:
 				GuildStore.set(voiceChannel.guild.id, { 'audio.computing': false });
 				return Logger.error('Invalid file path');
 		}
 
-		const Dispatcher = Voice.playAudio(audio.path);
+		const Dispatcher = Voice.playAudio(audio.source);
 
 		Dispatcher.on('end', () => {
 			const Conf = GuildStore.get(voiceChannel.guild.id,
