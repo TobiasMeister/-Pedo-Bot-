@@ -1,7 +1,7 @@
-const GuildConf = require('../util/GuildConf.js');
+const GuildStore = require('../util/GuildStore.js');
 
 exports.run = (Bot, msg, args) => {
-	const Cmd = GuildConf.get(null, 'cmd');
+	const Cmd = GuildStore.get(null, 'cmd');
 
 	let commands = Cmd.cmds.sort().join(', ');
 
