@@ -37,8 +37,6 @@ module.exports.fetchInfo = (url, format = 'm4a') => {
 
 			if (!Array.isArray(info)) {
 				infoEntries.push(info);
-				// Temporary fix for bug in ytdl api
-				infoEntries[0].url = url;
 			} else {
 				infoEntries = info;
 			}
@@ -53,7 +51,7 @@ module.exports.fetchInfo = (url, format = 'm4a') => {
 					id: filename.match(filenameFormat)[2],
 					title: filename.match(filenameFormat)[1],
 					filename: filename,
-					url: info.url
+					url: info.webpage_url
 				};
 			});
 
