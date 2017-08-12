@@ -20,7 +20,7 @@ module.exports.load = (Bot, typename, regFn) => {
 				for (let sub in fn.run) {
 					if (fn.run.hasOwnProperty(sub)) {
 						Logger.log('└─', sub);
-						regFn(fn.run[sub], sub, sub.startsWith('_'));
+						regFn(fn.run[sub], sub);
 					}
 				}
 

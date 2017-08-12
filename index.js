@@ -30,8 +30,8 @@ Dynamic.load(Bot, 'events', (fn, name) => {
 
 Logger.log('Registering commands ...');
 
-Dynamic.load(Bot, 'commands', (fn, name, alt) => {
-	if (alt) {
+Dynamic.load(Bot, 'commands', (fn, name) => {
+	if (name.startsWith('_')) {
 		Cmd.createNonCmd(name.substr(1), (...args) => fn(Bot, ...args));
 	} else {
 		Cmd.createCmd(name, (...args) => fn(Bot, ...args));
