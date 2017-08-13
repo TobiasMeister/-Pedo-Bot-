@@ -235,7 +235,7 @@ exports.run.resume = (Bot, msg, args) => {
 exports.run.volume = (Bot, msg, args) => {
 	const Voice = GuildStore.get(msg.channel.guild.id, 'voice');
 
-	if (!args[0]) {
+	if (!args[0] || !parseInt(args[0])) {
 		return msg.channel.send('Need to specify a volume.');
 	}
 
