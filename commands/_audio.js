@@ -42,12 +42,12 @@ function playAudio(audio, textChannel, voiceChannel) {
 
 		switch (audio.type) {
 			case 'YTDL':
-				if (youtubeRegex().test(audio.url)) {
+				if (audio.protocol === 'm3u8') {
+					audio.stream = YouTube.stream(audio.url, true);
+				} else {
 					let source = await YouTube.streamAndDownload(audio.filename, audio.url, audio.forceDownload);
 					audio.path = source.path;
 					audio.stream = source.stream;
-				} else {
-					audio.path = await YouTube.download(audio.filename, audio.url, audio.forceDownload);
 				}
 				break;
 			case 'MEDIA':
@@ -167,17 +167,17 @@ exports.run.play = async (Bot, msg, args) => {
 		try {
 			let audioInfo = await YouTube.fetchInfo(args[0]);
 
+			if (audioInfo.playlist) {
+				Logger.log(`Adding ${audioInfo.entries.length} audio tracks from \`${audioInfo.playlist}\` to queue`);
+				textChannel.send(`Adding ${audioInfo.entries.length} audio tracks to queue.`);
+			}
+
 			audioInfo.entries.forEach(audio => {
 				audio.type = 'YTDL';
 				audio.forceDownload = forceDownload;
 
 				enqueue(audio, textChannel, voiceChannel, !audioInfo.playlist);
 			});
-
-			if (audioInfo.playlist) {
-				Logger.log(`Adding ${audioInfo.entries.length} audio tracks to queue`);
-				textChannel.send(`Adding ${audioInfo.entries.length} audio tracks to queue.`);
-			}
 
 		} catch (err) {
 			Logger.error(err);

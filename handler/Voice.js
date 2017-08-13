@@ -50,6 +50,8 @@ class VoiceUtil {
 	}
 
 	disconnectVoice() {
+		this.stopAudio();
+
 		if (!this.connection) return;
 
 		this.connection.channel.leave();
@@ -76,6 +78,10 @@ class VoiceUtil {
 
 		this.dispatcher.on('end', () => {
 			Logger.log('Audio track ended. Killing dispatcher');
+
+			if (isStream(source) && source.stop) {
+				source.stop();
+			}
 
 			this.dispatcher = null;
 		});

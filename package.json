@@ -19,6 +19,7 @@
     "node-opus": "^0.2.6",
     "python-shell": "^0.4.0",
     "sqlite3": "^3.1.8",
+    "tree-kill": "^1.1.0",
     "url-regex": "^4.0.0",
     "youtube-dl": "^1.11.1",
     "youtube-regex": "^1.0.5",

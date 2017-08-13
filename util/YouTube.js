@@ -10,6 +10,8 @@ const youtubeRegex = require('youtube-regex');
 const FS = require('fs');
 const Stream = require('stream');
 
+const treeKill = require('tree-kill');
+
 module.exports = {};
 
 module.exports.update = () => {
@@ -51,45 +53,43 @@ module.exports.fetchInfo = (url, format = 'm4a') => {
 					id: filename.match(filenameFormat)[2],
 					title: filename.match(filenameFormat)[1],
 					filename: filename,
-					url: info.webpage_url
+					url: info.webpage_url,
+					protocol: info.protocol
 				};
 			});
 
-			if (result.length > 1) {
-				resolve({
-					playlistId: infoEntries[0].playlist_id,
-					playlistTitle: infoEntries[0].playlist_title,
-					playlist: infoEntries[0].playlist_title,
-					entries: result
-				});
-			} else {
-				resolve({
-					playlist: null,
-					entries: result
-				});
-			}
+			resolve({
+				playlist: infoEntries[0].playlist,
+				entries: result
+			});
 		});
 	});
 };
 
-/**
- * Only supports links directly from YouTube, can't stream from elsewhere.
- */
-module.exports.stream = (url, quality = 140) => {
-	if (!youtubeRegex().test(url)) return Logger.error('Not a valid url');
+module.exports.stream = (url, isStream, quality) => {
+	if (!urlRegex().test(url)) return Logger.error('Not a valid url');
+	
+	// To figure out quality use -F
+	// Regex: https://regex101.com/r/C7umvu/1
+	quality = quality || (isStream ? 93 : 140);
 
 	Logger.log('Fetching audio stream');
 
-	// To figure out quality use -F
-	// Regex: https://regex101.com/r/C7umvu/1
-	return ytdl(url, { filter: 'audioonly', quality: quality });
+	var { spawn } = require('child_process');
+	var proc = spawn('node_modules/youtube-dl/bin/youtube-dl',
+			['-o', '-', url, '--audio-quality', quality]);
+
+	proc.stdout.stop = () => {
+		treeKill(proc.pid, 'SIGTERM', (err) => {
+			if (err) return Logger.error(err);
+		});
+	};
+
+	return proc.stdout;
 };
 
-/**
- * Only supports links directly from YouTube, can't stream from elsewhere.
- */
 module.exports.streamAndDownload = (filename, url, forceDownload = false, format = 'm4a', quality = 140, dir = 'media/youtube/') => {
-	if (!youtubeRegex().test(url)) return Promise.reject(Logger.format('Not a valid url'));
+	if (!urlRegex().test(url)) return Promise.reject(Logger.format('Not a valid url'));
 
 	return new Promise((resolve, reject) => {
 		if (!FS.existsSync(dir)) {
@@ -113,7 +113,7 @@ module.exports.streamAndDownload = (filename, url, forceDownload = false, format
 			Logger.log('Audio file not found in cache');
 		}
 
-		let stream = module.exports.stream(url);
+		let stream = module.exports.stream(url, false);
 
 		let fileStream = FS.createWriteStream(dir + filename);
 		fileStream.on('finish', () => Logger.log('Audio track downloaded'));
