@@ -16,7 +16,7 @@ module.exports = (...classifier) => {
 	};
 
 	module.format = (...msg) => {
-		return def + msg.join(' ');
+		return `[${def}] ` + msg.join(' ');
 	};
 
 	return module;
