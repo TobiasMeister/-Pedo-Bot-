@@ -9,7 +9,7 @@ exports.run = (Bot) => {
 	Logger.log('Registering voice handlers ...');
 
 	for (let [id, guild] of Bot.guilds) {
-		GuildStore.set(id, { voice: new Voice(Bot) });
+		GuildStore.set(id, { voice: new Voice(Bot, id) });
 	}
 
 	Logger.log(`Registered ${Bot.guilds.size} voice handlers`);

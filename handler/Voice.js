@@ -1,4 +1,5 @@
 const Logger = require('../util/Logger.js')('Voice');
+const GuildConf = require('../util/GuildConf.js');
 
 const Config = require('../config.json');
 const Discord = require('discord.js');
@@ -7,8 +8,9 @@ const isStream = require('is-stream');
 
 class VoiceUtil {
 
-	constructor(Bot) {
+	constructor(Bot, guild) {
 		this.Bot = Bot;
+		this.guild = guild;
 
 		this.connection = null;
 		this.dispatcher = null;
@@ -66,7 +68,11 @@ class VoiceUtil {
 		} else {
 			this.dispatcher = this.connection.playFile(source);
 		}
-		this.dispatcher.setVolume(Config.voice.volume);
+
+		this.dispatcher.setVolume(Config.voice.volume / 10);
+		GuildConf.get('voice', this.guild, 'volume').then(volume => {
+			if (volume || volume === 0) this.dispatcher.setVolume(volume / 10);
+		});
 
 		this.dispatcher.on('end', () => {
 			Logger.log('Audio track ended. Killing dispatcher');
@@ -103,10 +109,11 @@ class VoiceUtil {
 	}
 
 	setVolume(volume) {
-		Config.voice.volume = volume;
+		GuildConf.set('voice', this.guild, { volume: volume });
 
-		if (!this.playing) return;
-		this.dispatcher.setVolume(volume);
+		if (this.playing) {
+			this.dispatcher.setVolume(volume / 10);
+		}
 	}
 
 	get channel() {
