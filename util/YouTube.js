@@ -43,7 +43,7 @@ module.exports.fetchInfo = (url, format = 'm4a') => {
 
 			let result = infoEntries.map(info => {
 				let filename = info._filename
-						.replace(/^(.+\.).+$/, `$1${format}`);
+						.replace(/^\/?(.+\.).+$/, `$1${format}`);
 
 				let filenameFormat = `^(.+) - (.+)(\\.${format})$`;
 
