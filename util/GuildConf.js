@@ -3,13 +3,6 @@ const Logger = require('./Logger.js')('GuildConf');
 const SQLite = require('sqlite3').verbose();
 const DB = new SQLite.Database('config.sqlite');
 
-/**
- * Checks if an error is present and logs it appropriately.
- *
- * Needed because database functions always execute the provided
- * error callback, even if actually no error occured.
- * => Reduces code noise
- */
 function errCallback(err) {
 	if (err) return Logger.error(err);
 }
