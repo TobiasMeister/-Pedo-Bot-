@@ -72,8 +72,9 @@ class VoiceUtil {
 		}
 
 		this.dispatcher.setVolume(Config.voice.volume / 10);
+		let disp = this.dispatcher;
 		GuildConf.get('voice', this.guild, 'volume').then(volume => {
-			if (volume || volume === 0) this.dispatcher.setVolume(volume / 10);
+			if (volume || volume === 0) disp.setVolume(volume / 10);
 		});
 
 		this.dispatcher.on('end', () => {
