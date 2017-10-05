@@ -66,14 +66,14 @@ module.exports.fetchInfo = (url, format = 'm4a') => {
 	});
 };
 
-module.exports.stream = (url, isStream, quality) => {
+module.exports.stream = (url, isStream, quality, silent = false) => {
 	if (!urlRegex().test(url)) return Logger.error('Not a valid url');
-	
+
 	// To figure out quality use -F
 	// Regex: https://regex101.com/r/C7umvu/1
 	quality = quality || (isStream ? 93 : 140);
 
-	Logger.log('Fetching audio stream');
+	if (!silent) Logger.log('Fetching audio stream');
 
 	var { spawn } = require('child_process');
 	var proc = spawn('node_modules/youtube-dl/bin/youtube-dl',
@@ -92,47 +92,30 @@ module.exports.streamAndDownload = (filename, url, forceDownload = false, format
 	if (!urlRegex().test(url)) return Promise.reject(Logger.format('Not a valid url'));
 
 	return new Promise((resolve, reject) => {
-		if (!FS.existsSync(dir)) {
-			FS.mkdirSync(dir);
+		Logger.log('Searching for cached version of audio track');
+
+		let files = FS.readdirSync(dir);
+
+		if (files.includes(filename)) {
+			Logger.log('Cached audio track found. Skipping download');
+
+			return resolve({ path: dir + filename });
 		}
 
-		if (forceDownload) {
-			Logger.log('Audio cache disabled manually. Forcing (re)download');
-
-		} else {
-			Logger.log('Searching for cached version of audio track');
-
-			let files = FS.readdirSync(dir);
-
-			if (files.includes(filename)) {
-				Logger.log('Cached audio track found. Skipping download');
-
-				return resolve({ path: dir + filename });
-			}
-
-			Logger.log('Audio file not found in cache');
-		}
-
-		let stream = module.exports.stream(url, false);
+		Logger.log('Audio file not found in cache');
+		Logger.log('Starting download of audio file');
 
 		let fileStream = FS.createWriteStream(dir + filename);
 		fileStream.on('finish', () => Logger.log('Audio track downloaded'));
 		fileStream.on('error', Logger.error);
 
-		let playbackBuffer = new Stream.PassThrough();
+		module.exports.stream(url, false, quality, true).pipe(fileStream);
 
-		stream.on('data', (data) => {
-			fileStream.write(data);
-			playbackBuffer.write(data);
-		});
-		stream.on('finish', () => {
-			fileStream.end();
-			playbackBuffer.end();
-		});
+		let stream = module.exports.stream(url, false, quality);
 
 		resolve({
 			path: dir + filename,
-			stream: playbackBuffer
+			stream: stream
 		});
 	});
 };

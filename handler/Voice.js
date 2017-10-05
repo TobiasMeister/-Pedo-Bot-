@@ -71,6 +71,8 @@ class VoiceUtil {
 			this.dispatcher = this.connection.playFile(source);
 		}
 
+		this.dispatcher.on('error', Logger.error);
+
 		this.dispatcher.setVolume(Config.voice.volume / 10);
 		let disp = this.dispatcher;
 		GuildConf.get('voice', this.guild, 'volume').then(volume => {
