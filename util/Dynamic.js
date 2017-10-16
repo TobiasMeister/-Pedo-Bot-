@@ -2,34 +2,59 @@ const Logger = require('./Logger.js')('Dynamic');
 
 const FS = require('fs');
 
-module.exports.load = (Bot, typename, regFn) => {
-	try {
-		let files = FS.readdirSync(`./${typename}/`);
+let types = [];
 
-		files.forEach(file => {
-			if (!file.match(/js$/)) return;
+function fetchTypes(typeName) {
+	let path = `./${typeName}/`;
 
-			let name = file.split('.')[0];
-			Logger.log(name);
+	if (!FS.existsSync(path)) return [];
 
-			let fn = require(`../${typename}/${file}`);
+	return FS.readdirSync(`./${typeName}/`)
+			.filter(file => file.match(/js$/));
+}
 
-			if (fn.init) fn.init(Bot);
+module.exports.load = (Bot, typeName, regFn) => {
+	Logger.log(`Registering ${typeName} ...`);
 
-			if (file.startsWith('_')) {
-				for (let sub in fn.run) {
-					if (fn.run.hasOwnProperty(sub)) {
-						Logger.log('└─', sub);
-						regFn(fn.run[sub], sub);
-					}
+	fetchTypes(typeName).forEach(file => {
+		let name = file.split('.')[0];
+
+		let fn = require(`../${typeName}/${file}`);
+
+		if (fn.init) fn.init(Bot);
+
+		if (file.startsWith('_')) {
+			for (let sub in fn.run) {
+				if (fn.run.hasOwnProperty(sub)) {
+					Logger.log('└─', sub);
+					regFn(fn.run[sub], sub);
 				}
-
-			} else {
-				regFn(fn.run, name);
 			}
-		});
 
-	} catch (err) {
-		return Logger.error(err);
-	}
+		} else {
+			regFn(fn.run, name);
+		}
+	});
+
+	types.push(typeName);
+};
+
+module.exports.destroy = (Bot, typeName, destrFunc) => {
+	if (!typeName)
+		return types.forEach(type => module.exports.destroy(Bot, type, destrFunc));
+	if (!types.includes(typeName))
+		return Logger.error('Type not registered, cannot destroy!');
+
+	Logger.log(`De-registering ${typeName} ...`);
+
+	fetchTypes(typeName).forEach(file => {
+		let name = file.split('.')[0];
+
+		let fn = require(`../${typeName}/${file}`);
+
+		if (fn.destroy) fn.destroy(Bot);
+		if (destrFunc) destrFunc(name);
+	});
+
+	types = types.filter(type => type != typeName);
 };

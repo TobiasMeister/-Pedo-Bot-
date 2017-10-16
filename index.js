@@ -22,13 +22,9 @@ GuildStore.set(null, {
 	cmd: Cmd
 });
 
-Logger.log('Registering events ...');
-
 Dynamic.load(Bot, 'events', (fn, name) => {
 	Bot.on(name, (...args) => fn(Bot, ...args));
 });
-
-Logger.log('Registering commands ...');
 
 Dynamic.load(Bot, 'commands', (fn, name) => {
 	if (name.startsWith('_')) {
@@ -37,8 +33,6 @@ Dynamic.load(Bot, 'commands', (fn, name) => {
 		Cmd.createCmd(name, (...args) => fn(Bot, ...args));
 	}
 });
-
-Logger.log('Registering actions ...')
 
 Dynamic.load(Bot, 'actions', (fn, name) => {
 	Cmd.createNonCmd(name, msg => fn(Bot, msg));

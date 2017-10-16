@@ -10,6 +10,8 @@ const Kaomoji = require('../kaomoji.json');
 const urlRegex = require('url-regex');
 const youtubeRegex = require('youtube-regex');
 
+const Tracks = require('../tracks.json');
+
 function enqueue(audio, textChannel, voiceChannel, output = true) {
 	const Conf = GuildStore.get(voiceChannel.guild.id, 'voice',
 			'audio.queue', 'audio.computing', 'audio.stopped');
@@ -62,7 +64,7 @@ function playAudio(audio, textChannel, voiceChannel) {
 
 		Dispatcher.on('end', () => {
 			const Conf = GuildStore.get(voiceChannel.guild.id,
-					'audio.queue', 'audio.computing', 'audio.stopped', 'audio.repeat');
+					'audio.queue', 'audio.computing', 'audio.stopped', 'audio.repeat', 'audio.autoplay');
 
 			if (Conf['audio.stopped']) {
 				Conf['audio.queue'].shift();
@@ -85,6 +87,17 @@ function playAudio(audio, textChannel, voiceChannel) {
 
 				return playAudio(Conf['audio.queue'][0], textChannel, voiceChannel);
 			}
+
+			if (Conf['audio.autoplay']) {
+				Logger.log('Playing next audio track from autoplay');
+
+				let Bot = GuildStore.get(null, 'bot');
+
+				return module.exports.run.play(Bot, {
+					channel: textChannel,
+					author: Bot.user
+				}, [ fetchRandomTrack().url ]);
+			}
 		});
 
 		GuildStore.set(voiceChannel.guild.id, { 'audio.computing': false });
@@ -102,7 +115,8 @@ exports.init = (Bot) => {
 			'audio.queue': [],
 			'audio.computing': false,
 			'audio.stopped': false,
-			'audio.repeat': false
+			'audio.repeat': false,
+			'audio.autoplay': false
 		});
 
 		InitStates.set(guild, true);
@@ -119,9 +133,16 @@ exports.init = (Bot) => {
 	});
 
 	Bot.on('guildDelete', (guild) => {
-		GuildStore.delete(guild.id, 'audio.queue', 'audio.computing', 'audio.stopped', 'audio.repeat');
+		GuildStore.delete(guild.id, 'audio.queue', 'audio.computing', 'audio.stopped', 'audio.repeat', 'audio.autoplay');
 		InitStates.delete(guild.id);
 	});
+};
+
+exports.destroy = (Bot) => {
+	for (let [id, guild] of Bot.guilds) {
+		const Voice = GuildStore.get(id, 'voice');
+		Voice.disconnectVoice();
+	}
 };
 
 exports.run = {};
@@ -138,7 +159,7 @@ exports.run.play = async (Bot, msg, args) => {
 
 	msg.channel.startTyping();
 
-	if (msg.attachments.size > 0) {
+	if (msg.attachments && msg.attachments.size > 0) {
 		let forceDownload = !!args[0] && args[0].match(/\!{3,}/);
 
 		msg.attachments.forEach(async (value, key, map) => {
@@ -195,7 +216,8 @@ exports.run.stop = (Bot, msg, args) => {
 
 	GuildStore.set(msg.channel.guild.id, {
 		'audio.stopped': true,
-		'audio.repeat': false
+		'audio.repeat': false,
+		'audio.autoplay': false
 	});
 
 	Voice.stopAudio();
@@ -309,6 +331,36 @@ exports.run.repeat = (Bot, msg, args) => {
 	} else {
 		msg.channel.send('Stopped repeating `' + Conf['audio.queue'][0].title + '`\n'
 				+ 'Will play next song in queue when finished.');
+	}
+};
+
+function fetchRandomTrack() {
+	let randomIndex = Math.floor(Math.random() * (Object.keys(Tracks).length - 1) + 1);
+
+	return Object.values(Tracks)[randomIndex];
+}
+
+exports.run.autoplay = (Bot, msg, args) => {
+	let enable;
+	let currentlyEnabled = GuildStore.get(msg.channel.guild.id, 'audio.autoplay');
+
+	// Disgusting code, I know
+	if (args.length === 1) {
+		if (args[0] !== 'on' && args[0] !== 'off') return msg.channel.send('Lern to type, fgt ... :unamused:');
+
+		enable = args[0] === 'on' || !(args[0] === 'off');
+	} else {
+		enable = !currentlyEnabled;
+	}
+
+	GuildStore.set(msg.channel.guild.id, { 'audio.autoplay': enable });
+
+	if (enable && !currentlyEnabled) {
+		let Conf = GuildStore.get(msg.channel.guild.id, 'audio.computing', 'audio.nowPlaying');
+
+		if (!Conf.computing && !Conf.nowPlaying) {
+			exports.run.play(Bot, msg, [ fetchRandomTrack().url ]);
+		}
 	}
 };
 
